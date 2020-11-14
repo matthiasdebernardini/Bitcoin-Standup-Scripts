@@ -202,7 +202,7 @@ BTCTYPE="Private Regtest"
 fi
 
 
-elif [ "$BTCTYPE" == "Testnet" ]; then
+if [ "$BTCTYPE" == "Testnet" ]; then
 
 cat >> ~standup/.bitcoin/bitcoin.conf << EOF
 txindex=1

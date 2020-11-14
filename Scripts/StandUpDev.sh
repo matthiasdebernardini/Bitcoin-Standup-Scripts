@@ -71,26 +71,8 @@
 # If you want to omit an argument then input empty qoutes in its place for example:
 # ./standup "" "Mainnet" "" "" "aPasswordForTheUser"
 
-# If you do not want to add any arguments and run everything as per the defaults simply run:
+# To run a basic regtest node:
 # ./standup.sh
-
-# For Tor V3 client authentication (optional), you can run standup.sh like:
-# ./standup.sh "descriptor:x25519:NWJNEFU487H2BI3JFNKJENFKJWI3"
-# and it will automatically add the pubkey to the authorized_clients directory, which
-# means the user is Tor authenticated before the node is even installed.
-PUBKEY=$1
-
-# Can be one of the following: "Mainnet", "Pruned Mainnet", "Testnet", "Pruned Testnet", or "Private Regtest", default is "Pruned Testnet"
-BTCTYPE=$2
-
-# Optional key for automated SSH logins to standup non-privileged account - if you do not want to add one add "" as an argument
-SSH_KEY=$3
-
-# Optional comma separated list of IPs that can use SSH - if you do not want to add any add "" as an argument
-SYS_SSH_IP=$4
-
-# Optional password for the standup non-privileged account - if you do not want to add one add "" as an argument
-USERPASSWORD=$5
 
 # Force check for root, if you are not logged in as root then the script will not execute
 if ! [ "$(id -u)" = 0 ]
@@ -111,29 +93,21 @@ exec > >(tee -a /root/standup.log) 2> >(tee -a /root/standup.log /root/standup.e
 echo "$0 - Starting Debian updates; this will take a while!"
 
 # Make sure all packages are up-to-date
-apt-get update
-apt-get upgrade -y
-apt-get dist-upgrade -y
+apt update
+apt upgrade -y
+apt dist-upgrade -y
 
 # Install haveged (a random number generator)
-apt-get install haveged -y
+apt install haveged -y
 
 # Install GPG
-apt-get install gnupg -y
+apt install gnupg -y
 
 # Install dirmngr
-apt-get install dirmngr
+apt install dirmngr
 
-# Set system to automatically update
-echo "unattended-upgrades unattended-upgrades/enable_auto_updates boolean true" | debconf-set-selections
-apt-get -y install unattended-upgrades
 
 echo "$0 - Updated Debian Packages"
-
-# get uncomplicated firewall and deny all incoming connections except SSH
-sudo apt-get install ufw
-ufw allow ssh
-ufw enable
 
 ####
 # 3. Set Up User
@@ -145,106 +119,7 @@ ufw enable
 
 echo "$0 - Setup standup with sudo access."
 
-# Setup SSH Key if the user added one as an argument
-if [ -n "$SSH_KEY" ]
-then
 
-   mkdir ~standup/.ssh
-   echo "$SSH_KEY" >> ~standup/.ssh/authorized_keys
-   chown -R standup ~standup/.ssh
-
-   echo "$0 - Added .ssh key to standup."
-
-fi
-
-# Setup SSH allowed IP's if the user added any as an argument
-if [ -n "$SYS_SSH_IP" ]
-then
-
-  echo "sshd: $SYS_SSH_IP" >> /etc/hosts.allow
-  echo "sshd: ALL" >> /etc/hosts.deny
-  echo "$0 - Limited SSH access."
-
-else
-
-  echo "$0 - WARNING: Your SSH access is not limited; this is a major security hole!"
-
-fi
-
-####
-# 4. Install latest stable tor
-####
-
-# Download tor
-
-#  To use source lines with https:// in /etc/apt/sources.list the apt-transport-https package is required. Install it with:
-sudo apt install apt-transport-https
-
-# We need to set up our package repository before you can fetch Tor. First, you need to figure out the name of your distribution:
-DEBIAN_VERSION=$(lsb_release -c | awk '{ print $2 }')
-
-# You need to add the following entries to /etc/apt/sources.list:
-cat >> /etc/apt/sources.list << EOF
-deb https://deb.torproject.org/torproject.org $DEBIAN_VERSION main
-deb-src https://deb.torproject.org/torproject.org $DEBIAN_VERSION main
-EOF
-
-# Then add the gpg key used to sign the packages by running:
-sudo apt-key adv --recv-keys --keyserver keys.gnupg.net  74A941BA219EC810
-sudo wget -qO- https://deb.torproject.org/torproject.org/A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89.asc | gpg --import
-sudo gpg --export A3C4F0F979CAA22CDBA8F512EE8CBC9E886DDD89 | apt-key add -
-
-# Update system, install and run tor as a service
-sudo apt update
-sudo apt install tor deb.torproject.org-keyring
-
-# Setup hidden service
-sed -i -e 's/#ControlPort 9051/ControlPort 9051/g' /etc/tor/torrc
-sed -i -e 's/#CookieAuthentication 1/CookieAuthentication 1/g' /etc/tor/torrc
-sed -i -e 's/## address y:z./## address y:z.\
-\
-HiddenServiceDir \/var\/lib\/tor\/standup\/\
-HiddenServiceVersion 3\
-HiddenServicePort 1309 127.0.0.1:18332\
-HiddenServicePort 1309 127.0.0.1:18443\
-HiddenServicePort 1309 127.0.0.1:8332/g' /etc/tor/torrc
-mkdir /var/lib/tor/standup
-chown -R debian-tor:debian-tor /var/lib/tor/standup
-chmod 700 /var/lib/tor/standup
-
-# Add standup to the tor group so that the tor authentication cookie can be read by bitcoind
-sudo usermod -a -G debian-tor standup
-
-# Restart tor to create the HiddenServiceDir
-sudo systemctl restart tor.service
-
-
-# add V3 authorized_clients public key if one exists
-if ! [ "$PUBKEY" == "" ]
-then
-
-  # create the directory manually incase tor.service did not restart quickly enough
-  mkdir /var/lib/tor/standup/authorized_clients
-
-  # need to assign the owner
-  chown -R debian-tor:debian-tor /var/lib/tor/standup/authorized_clients
-
-  # Create the file for the pubkey
-  sudo touch /var/lib/tor/standup/authorized_clients/fullynoded.auth
-
-  # Write the pubkey to the file
-  sudo echo "$PUBKEY" > /var/lib/tor/standup/authorized_clients/fullynoded.auth
-
-  # Restart tor for authentication to take effect
-  sudo systemctl restart tor.service
-
-  echo "$0 - Successfully added Tor V3 authentication"
-
-else
-
-  echo "$0 - No Tor V3 authentication, anyone who gets access to your QR code can have full access to your node, ensure you do not store more then you are willing to lose and better yet use the node as a watch-only wallet"
-
-fi
 
 ####
 # 5. Install Bitcoin
@@ -316,26 +191,16 @@ server=1
 rpcuser=StandUp
 rpcpassword=$RPCPASSWORD
 rpcallowip=127.0.0.1
-debug=tor
+debug=1
+daemon=1
 EOF
 
 if [ "$BTCTYPE" == "" ]; then
 
-BTCTYPE="Pruned Testnet"
+BTCTYPE="Private Regtest"
 
 fi
 
-if [ "$BTCTYPE" == "Mainnet" ]; then
-
-cat >> ~standup/.bitcoin/bitcoin.conf << EOF
-txindex=1
-EOF
-
-elif [ "$BTCTYPE" == "Pruned Mainnet" ]; then
-
-cat >> ~standup/.bitcoin/bitcoin.conf << EOF
-prune=550
-EOF
 
 elif [ "$BTCTYPE" == "Testnet" ]; then
 
@@ -394,8 +259,6 @@ sudo cat > /etc/systemd/system/bitcoind.service << EOF
 # in ExecStart=
 [Unit]
 Description=Bitcoin daemon
-After=tor.service
-Requires=tor.service
 [Service]
 ExecStart=/usr/local/bin/bitcoind -conf=/home/standup/.bitcoin/bitcoin.conf
 # Process management
@@ -433,22 +296,8 @@ echo "$0 - Starting bitcoind service"
 sudo systemctl enable bitcoind.service
 sudo systemctl start bitcoind.service
 
-####
-# 6. Install QR encoder and displayer, and show the btcstandup:// uri in plain text incase the QR Code does not display
-####
 
-# Get the Tor onion address for the QR code
-HS_HOSTNAME=$(sudo cat /var/lib/tor/standup/hostname)
 
-# Create the QR string
-QR="btcstandup://StandUp:$RPCPASSWORD@$HS_HOSTNAME:1309/?label=StandUp.sh"
-
-# Display the uri text incase QR code does not work
-echo "$0 - **************************************************************************************************************"
-echo "$0 - This is your btcstandup:// uri to convert into a QR which can be scanned with FullyNoded to connect remotely:"
-echo $QR
-echo "$0 - **************************************************************************************************************"
-echo "$0 - Bitcoin is setup as a service and will automatically start if your VPS reboots and so is Tor"
 echo "$0 - You can manually stop Bitcoin with: sudo systemctl stop bitcoind.service"
 echo "$0 - You can manually start Bitcoin with: sudo systemctl start bitcoind.service"
 

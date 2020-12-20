@@ -22,13 +22,16 @@ $ sudo passwd
 $ sudo su
 
 3. Edit config for your node setup using your favourite text editor:
-# nano ss.conf
+
+`nano ss.conf`
 
 4. Source the script:
-# source ss_00_main.sh
+
+`source ss_00_main.sh`
 
 5. Display help:
-# source ss_00_main.sh -h
+
+`source ss_00_main.sh -h`
 
 This script can be installed on any Debian based system. By default this script will:
 

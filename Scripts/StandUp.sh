@@ -1,8 +1,9 @@
 #!/bin/bash
 
 # DISCLAIMER: It is not a good idea to store large amounts of Bitcoin on a VPS,
-# ideally you should use this as a watch-only wallet. This script is expiramental
-# and has not been widely tested. The creators are not responsible for loss of
+# ideally you should use this as a watch-only wallet. This script is experimental
+# and has not been widely tested. 
+# The creators are not responsible for loss of
 # funds. If you are not familiar with running a node or how Bitcoin works then we
 # urge you to use this in testnet so that you can use it as a learning tool.
 
@@ -255,7 +256,7 @@ echo "$0 - Downloading Bitcoin; this will also take a while!"
 
 # CURRENT BITCOIN RELEASE:
 # Change as necessary
-export BITCOIN="bitcoin-core-0.20.0"
+export BITCOIN="bitcoin-core-0.20.1"
 export BITCOINPLAIN=`echo $BITCOIN | sed 's/bitcoin-core/bitcoin/'`
 
 sudo -u standup wget https://bitcoincore.org/bin/$BITCOIN/$BITCOINPLAIN-x86_64-linux-gnu.tar.gz -O ~standup/$BITCOINPLAIN-x86_64-linux-gnu.tar.gz
@@ -312,18 +313,30 @@ sudo -u standup /bin/mkdir ~standup/.bitcoin
 RPCPASSWORD=$(xxd -l 16 -p /dev/urandom)
 
 cat >> ~standup/.bitcoin/bitcoin.conf << EOF
+# [core]
+# Only download and relay blocks - ignore unconfirmed transaction
+blocksonly=1
+blockfilterindex=1
+dbcache=50
+maxsigcachesize=4 
+maxconnections=4 
+rpcthreads=1
+banscore=1
+
 server=1
 rpcuser=StandUp
 rpcpassword=$RPCPASSWORD
 rpcallowip=127.0.0.1
 debug=tor
+
+# [network]
+# Maintain at most N connections to peers.
+maxconnections=20
+# Tries to keep outbound traffic under the given target (in MiB per 24h), 0 = no limit.
+maxuploadtarget=500
 EOF
 
-if [ "$BTCTYPE" == "" ]; then
 
-BTCTYPE="Pruned Testnet"
-
-fi
 
 if [ "$BTCTYPE" == "Mainnet" ]; then
 
@@ -335,6 +348,7 @@ elif [ "$BTCTYPE" == "Pruned Mainnet" ]; then
 
 cat >> ~standup/.bitcoin/bitcoin.conf << EOF
 prune=550
+
 EOF
 
 elif [ "$BTCTYPE" == "Testnet" ]; then
@@ -346,10 +360,7 @@ EOF
 
 elif [ "$BTCTYPE" == "Pruned Testnet" ]; then
 
-cat >> ~standup/.bitcoin/bitcoin.conf << EOF
-prune=550
-testnet=1
-EOF
+
 
 elif [ "$BTCTYPE" == "Private Regtest" ]; then
 
@@ -386,7 +397,7 @@ echo "$0 - Setting up Bitcoin as a systemd service."
 sudo cat > /etc/systemd/system/bitcoind.service << EOF
 # It is not recommended to modify this file in-place, because it will
 # be overwritten during package upgrades. If you want to add further
-# options or overwrite existing ones then use
+# options or overwrite existing ones then use;
 # $ systemctl edit bitcoind.service
 # See "man systemd.service" for details.
 # Note that almost all daemon options could be specified in
@@ -411,6 +422,7 @@ Group=sudo
 # /run/bitcoind
 RuntimeDirectory=bitcoind
 RuntimeDirectoryMode=0710
+
 # Hardening measures
 ####################
 # Provide a private /tmp and /var/tmp.
@@ -423,7 +435,7 @@ NoNewPrivileges=true
 # Use a new /dev namespace only populated with API pseudo devices
 # such as /dev/null, /dev/zero and /dev/random.
 PrivateDevices=true
-# Deny the creation of writable and executable memory mappings.
+# Deny the creation of writeable and executeable memory mappings.
 MemoryDenyWriteExecute=true
 [Install]
 WantedBy=multi-user.target
@@ -434,7 +446,7 @@ sudo systemctl enable bitcoind.service
 sudo systemctl start bitcoind.service
 
 ####
-# 6. Install QR encoder and displayer, and show the btcstandup:// uri in plain text incase the QR Code does not display
+# 6. Install QR encoder and displayer, and show the btcstandup:// uri in plain text in case the QR Code does not display
 ####
 
 # Get the Tor onion address for the QR code
@@ -443,14 +455,14 @@ HS_HOSTNAME=$(sudo cat /var/lib/tor/standup/hostname)
 # Create the QR string
 QR="btcstandup://StandUp:$RPCPASSWORD@$HS_HOSTNAME:1309/?label=StandUp.sh"
 
-# Display the uri text incase QR code does not work
+# Display the uri text in case QR code does not work
 echo "$0 - **************************************************************************************************************"
 echo "$0 - This is your btcstandup:// uri to convert into a QR which can be scanned with FullyNoded to connect remotely:"
 echo $QR
 echo "$0 - **************************************************************************************************************"
-echo "$0 - Bitcoin is setup as a service and will automatically start if your VPS reboots and so is Tor"
-echo "$0 - You can manually stop Bitcoin with: sudo systemctl stop bitcoind.service"
-echo "$0 - You can manually start Bitcoin with: sudo systemctl start bitcoind.service"
+echo "$0 - Bitcoin and Tor is setup as a service and will automatically start if your VPS reboots"
+echo "$0 - You can manually stop/start Bitcoin with: sudo systemctl stop/start bitcoind.service"
+echo "$0 - Remember to cleanup all side-effects"
 
 # Finished, exit script
 exit 1

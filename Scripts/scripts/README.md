@@ -21,10 +21,10 @@ $ sudo passwd
 2. Switch to the root user:
 $ sudo su
 
-3. Edit config for your node setup using your favourite text editor:
-
-`nano ss.conf`
-
+3. Edit `ss.conf` for your node:
+`$ curl https://json.geoiplookup.io/$(curl https://ipinfo.io/ip)`
+`$ hostname --fqdn`
+`$ hostnamectl`
 4. Source the script:
 
 `source ss_00_main.sh`

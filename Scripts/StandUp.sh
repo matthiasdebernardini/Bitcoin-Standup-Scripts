@@ -123,16 +123,16 @@ apt-get install haveged -y
 apt-get install gnupg -y
 
 # Install dirmngr
-apt-get install dirmngr
+apt-get install dirmng -y
 
 # Set system to automatically update
 echo "unattended-upgrades unattended-upgrades/enable_auto_updates boolean true" | debconf-set-selections
-apt-get -y install unattended-upgrades
+apt-get install unattended-upgrades -y
 
 echo "$0 - Updated Debian Packages"
 
 # get uncomplicated firewall and deny all incoming connections except SSH
-sudo apt-get install ufw
+sudo apt-get install ufw 
 ufw allow ssh
 ufw enable
 
@@ -360,6 +360,10 @@ EOF
 
 elif [ "$BTCTYPE" == "Pruned Testnet" ]; then
 
+cat >> ~standup/.bitcoin/bitcoin.conf << EOF
+prune=550
+testnet=1
+EOF
 
 
 elif [ "$BTCTYPE" == "Private Regtest" ]; then

@@ -55,9 +55,12 @@
 # control x (this starts to exit nano)
 # y (this confirms you want to save the file)
 # return (just press enter to confirm you want to save and exit)
+# git clone https://github.com/matthiasdebernardini/Bitcoin-Standup-Scripts.git
 
 # Then we need to make sure the script can be executable with:
 # $ chmod +x standup.sh
+# chmod +x Bitcoin-Standup-Scripts/Scripts/StandUp.sh
+# ./Bitcoin-Standup-Scripts/Scripts/StandUp.sh "" "Pruned Testnet" "" "" "79ff6f0c9c1c"
 
 # After that you can run the script with the optional arguments like so:
 # $ ./standup.sh "insert pubkey" "insert node type (see options below)" "insert ssh key" "insert ssh allowed IP's" "insert password for standup user"
@@ -467,6 +470,8 @@ echo "$0 - *********************************************************************
 echo "$0 - Bitcoin and Tor is setup as a service and will automatically start if your VPS reboots"
 echo "$0 - You can manually stop/start Bitcoin with: sudo systemctl stop/start bitcoind.service"
 echo "$0 - Remember to cleanup all side-effects"
+echo "$0 - To see a running log of the status"
+echo "$0 - $ tail -f -n 100 /home/standup/.bitcoin/testnet3/debug.log"
 
 # Finished, exit script
 exit 1
